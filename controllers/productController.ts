@@ -52,3 +52,21 @@ export async function toggleStock(
 ): Promise<Product> {
   return updateProduct(id, { in_stock });
 }
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await authFetch(`${BASE}/products/upload-image`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Image upload failed");
+  const data = await res.json();
+  return data.url as string;
+}
+
+export async function deleteProductImage(id: string): Promise<Product> {
+  const res = await authFetch(`${BASE}/products/${id}/image`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete image");
+  return res.json();
+}

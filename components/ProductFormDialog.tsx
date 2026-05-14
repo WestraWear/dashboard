@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,15 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Product } from "@/models/product";
+import { uploadProductImage, deleteProductImage } from "@/controllers/productController";
+import { FaCloudUploadAlt, FaTimesCircle } from "react-icons/fa";
 
-const CATEGORIES = [
-  "Sarees",
-  "Kurtis",
-  "Ethnic Wear",
-  "Party Collection",
-  "Seasonal",
-  "Other",
-];
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "One Size", "Free Size"];
 
 export type ProductFormData = Omit<Product, "id">;
@@ -31,7 +25,7 @@ export type ProductFormData = Omit<Product, "id">;
 export const EMPTY_FORM: ProductFormData = {
   name: "",
   tagline: "",
-  category: "Sarees",
+  category: "",
   price: 0,
   original_price: undefined,
   sizes: [],
@@ -47,15 +41,21 @@ interface Props {
   initial: ProductFormData;
   onSave: (data: ProductFormData) => Promise<void>;
   saving: boolean;
+  productId?: string;
+  categories: string[];
 }
 
-export default function ProductFormDialog({ open, onClose, initial, onSave, saving }: Props) {
+export default function ProductFormDialog({ open, onClose, initial, onSave, saving, productId, categories }: Props) {
   const [form, setForm] = useState<ProductFormData>(initial);
   const [tagInput, setTagInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setForm(initial);
     setTagInput("");
+    setUploadError("");
   }, [initial, open]);
 
   const set = <K extends keyof ProductFormData>(k: K, v: ProductFormData[K]) =>
@@ -68,6 +68,29 @@ export default function ProductFormDialog({ open, onClose, initial, onSave, savi
     const t = tagInput.trim();
     if (t && !form.tags.includes(t)) set("tags", [...form.tags, t]);
     setTagInput("");
+  };
+
+  const handleRemoveImage = async () => {
+    if (productId) {
+      try { await deleteProductImage(productId); } catch { /* best-effort */ }
+    }
+    set("image_placeholder", "");
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const url = await uploadProductImage(file);
+      set("image_placeholder", url);
+    } catch {
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -107,23 +130,27 @@ export default function ProductFormDialog({ open, onClose, initial, onSave, savi
           {/* Category */}
           <div className="grid gap-1.5">
             <Label className="text-xs">Category *</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => set("category", cat)}
-                  className="px-3 py-1 rounded text-xs font-medium border transition-colors"
-                  style={{
-                    background: form.category === cat ? "var(--primary)" : "transparent",
-                    color: form.category === cat ? "var(--primary-foreground)" : "var(--muted-foreground)",
-                    borderColor: form.category === cat ? "var(--primary)" : "var(--border)",
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+            {categories.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No categories yet — add them on the Products page.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => set("category", cat)}
+                    className="px-3 py-1 rounded text-xs font-medium border transition-colors"
+                    style={{
+                      background: form.category === cat ? "var(--primary)" : "transparent",
+                      color: form.category === cat ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      borderColor: form.category === cat ? "var(--primary)" : "var(--border)",
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Price row */}
@@ -219,6 +246,69 @@ export default function ProductFormDialog({ open, onClose, initial, onSave, savi
 
           <Separator />
 
+          {/* Image Upload */}
+          <div className="grid gap-2">
+            <Label className="text-xs">Product Image</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {form.image_placeholder ? (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.image_placeholder}
+                  alt="Product"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage()}
+                  className="absolute top-2 right-2 bg-white rounded-full p-0.5 text-red-500 hover:text-red-700 shadow transition-colors"
+                >
+                  <FaTimesCircle size={16} />
+                </button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="absolute bottom-2 right-2 text-xs h-7"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  Replace
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex flex-col items-center justify-center gap-2 w-full h-32 rounded-lg border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors text-muted-foreground disabled:opacity-60"
+              >
+                {uploading ? (
+                  <span className="text-xs animate-pulse">Uploading…</span>
+                ) : (
+                  <>
+                    <FaCloudUploadAlt size={22} />
+                    <span className="text-xs">Click to upload image</span>
+                    <span className="text-[11px] opacity-60">JPG, PNG, WEBP up to 10MB</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {uploadError && (
+              <p className="text-[11px] text-destructive">{uploadError}</p>
+            )}
+          </div>
+
+          <Separator />
+
           {/* In stock toggle */}
           <div className="flex items-center justify-between">
             <div>
@@ -240,7 +330,7 @@ export default function ProductFormDialog({ open, onClose, initial, onSave, savi
           <Button
             size="sm"
             onClick={() => onSave(form)}
-            disabled={saving || !form.name || !form.price}
+            disabled={saving || uploading || !form.name || !form.price}
             style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
           >
             {saving ? "Saving…" : "Save Product"}

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, Fragment } from "react";
-import { FaSyncAlt, FaChartLine, FaClock, FaRupeeSign, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaChartLine, FaClock, FaRupeeSign, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -95,13 +94,6 @@ export default function OrdersPage() {
     <div className="flex flex-col min-h-full bg-background">
       <div className="p-6 flex flex-col gap-6">
         {/* Stat cards */}
-        <div className="flex items-center justify-between gap-4">
-          <div />
-          <Button variant="outline" size="sm" onClick={loadOrders} disabled={loading} className="gap-1.5 text-xs h-8">
-            <FaSyncAlt size={12} className={loading ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-none border py-0">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -212,7 +204,7 @@ export default function OrdersPage() {
                           onValueChange={(val) => updateStatus(order.id, val)}
                           disabled={updatingId === order.id}
                         >
-                          <SelectTrigger className="h-7 text-xs w-full">
+                          <SelectTrigger className="h-7 text-xs w-full capitalize">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

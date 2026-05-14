@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { FaSyncAlt, FaChartLine, FaShoppingBag, FaRupeeSign, FaClock, FaBox } from "react-icons/fa";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { FaChartLine, FaShoppingBag, FaRupeeSign, FaClock, FaBox } from "react-icons/fa";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  AreaChart, Area,
+  XAxis, YAxis, CartesianGrid,
+} from "recharts";
 import { fetchOrders } from "@/controllers/orderController";
 import { fetchProducts } from "@/controllers/productController";
 import { computeStats } from "@/controllers/analyticsController";
@@ -84,40 +94,15 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
   );
 }
 
-function MiniSparkline({ data }: { data: number[] }) {
-  if (data.length < 2) return null;
-  const max = Math.max(...data, 1);
-  const w = 200;
-  const h = 48;
-  const pad = 2;
-  const pts = data.map((v, i) => {
-    const x = pad + (i / (data.length - 1)) * (w - 2 * pad);
-    const y = h - pad - ((v / max) * (h - 2 * pad));
-    return `${x},${y}`;
-  });
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-12" preserveAspectRatio="none">
-      <polyline
-        points={pts.join(" ")}
-        fill="none"
-        stroke="var(--primary)"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polygon
-        points={`${pad},${h} ${pts.join(" ")} ${w - pad},${h}`}
-        fill="var(--primary)"
-        fillOpacity="0.1"
-      />
-    </svg>
-  );
-}
+const revenueConfig: ChartConfig = {
+  revenue: { label: "Revenue", color: "hsl(var(--primary))" },
+};
 
 export default function AnalyticsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revenueTab, setRevenueTab] = useState<"monthly" | "weekly">("monthly");
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -172,22 +157,54 @@ export default function AnalyticsPage() {
     .slice(0, 5)
     .map(([name, qty]) => ({ label: name, value: qty, color: "var(--primary)", bg: "var(--muted)" }));
 
-  // Daily revenue (last 14 days)
+  // Monthly revenue (last 6 months)
   const today = new Date();
-  const dailyRevenue = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (13 - i));
-    const dateStr = d.toISOString().slice(0, 10);
-    return orders
-      .filter((o) => o.status !== "cancelled" && o.created_at.startsWith(dateStr))
+  const revenueData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
+    const month = d.toLocaleString("default", { month: "short" });
+    const yr = d.getFullYear();
+    const mo = d.getMonth();
+    const rev = orders
+      .filter((o) => {
+        const od = new Date(o.created_at);
+        return o.status !== "cancelled" && od.getFullYear() === yr && od.getMonth() === mo;
+      })
       .reduce((s, o) => s + o.total, 0);
+    return { month, revenue: rev };
   });
 
-  // Category stock
-  const categoryStock = CATEGORIES.map((cat) => {
-    const ps = products.filter((p) => p.category === cat);
-    return { category: cat, total: ps.length, inStock: ps.filter((p) => p.in_stock).length };
-  }).filter((c) => c.total > 0);
+  // Weekly revenue (last 7 weeks)
+  const weeklyRevenueData = useMemo(() => {
+    const now = new Date();
+    // Align to start of current week (Monday)
+    const dayOfWeek = (now.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - dayOfWeek);
+    return Array.from({ length: 7 }, (_, i) => {
+      const start = new Date(weekStart);
+      start.setDate(weekStart.getDate() - (6 - i) * 7);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 7);
+      const label = start.toLocaleString("default", { month: "short", day: "numeric" });
+      const rev = orders
+        .filter((o) => {
+          const od = new Date(o.created_at);
+          return o.status !== "cancelled" && od >= start && od < end;
+        })
+        .reduce((s, o) => s + o.total, 0);
+      return { month: label, revenue: rev };
+    });
+  }, [orders]);
+
+  // Category stock — derived from actual product data
+  const categoryStock = Array.from(new Set(products.map((p) => p.category)))
+    .filter(Boolean)
+    .map((cat) => {
+      const ps = products.filter((p) => p.category === cat);
+      return { category: cat, total: ps.length, inStock: ps.filter((p) => p.in_stock).length };
+    })
+    .filter((c) => c.total > 0);
 
   // Recent 5 orders
   const recent = [...orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
@@ -195,13 +212,6 @@ export default function AnalyticsPage() {
   return (
     <div className="flex flex-col min-h-full bg-background">
       <div className="p-6 flex flex-col gap-6">
-        {/* Actions */}
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={loadAll} disabled={loading} className="gap-1.5 text-xs h-8">
-            <FaSyncAlt size={12} className={loading ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-        </div>
         {/* Top stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon={FaRupeeSign} label="Total Revenue" value={`₹${revenue.toLocaleString()}`} sub={`${activeOrders.length} active orders`} accent />
@@ -213,20 +223,41 @@ export default function AnalyticsPage() {
         {/* Revenue sparkline + Status breakdown */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className="shadow-none border py-0">
-            <CardHeader className="px-4 pt-4 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue — Last 14 Days</CardTitle>
+            <CardHeader className="px-4 pt-4 pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-medium">
+                {revenueTab === "monthly" ? "Revenue — Last 6 Months" : "Revenue — Last 7 Weeks"}
+              </CardTitle>
+              <Tabs value={revenueTab} onValueChange={(v) => setRevenueTab(v as "monthly" | "weekly")}>
+                <TabsList className="h-7 p-0.5">
+                  <TabsTrigger value="monthly" className="text-[11px] px-2.5 h-6">Monthly</TabsTrigger>
+                  <TabsTrigger value="weekly" className="text-[11px] px-2.5 h-6">Weekly</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
+            <CardContent className="px-2 pb-4">
               {loading ? (
-                <div className="h-12 animate-pulse bg-muted rounded" />
+                <div className="h-[200px] animate-pulse bg-muted rounded" />
               ) : (
-                <>
-                  <MiniSparkline data={dailyRevenue} />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-muted-foreground">14 days ago</span>
-                    <span className="text-[10px] text-muted-foreground">Today</span>
-                  </div>
-                </>
+                <ChartContainer config={revenueConfig} className="h-[180px] sm:h-[200px] w-full">
+                  <AreaChart data={revenueTab === "monthly" ? revenueData : weeklyRevenueData} margin={{ left: 0, right: 0 }}>
+                    <defs>
+                      <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={8} />
+                    <YAxis tickFormatter={(v) => `₹${v / 1000}K`} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={52} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent
+                        formatter={(value) => [`₹${Number(value).toLocaleString()}`]}
+                      />}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} fill="url(#fillRevenue)" />
+                  </AreaChart>
+                </ChartContainer>
               )}
             </CardContent>
           </Card>
@@ -378,4 +409,3 @@ export default function AnalyticsPage() {
   );
 }
 
-const CATEGORIES = ["Sarees", "Kurtis", "Ethnic Wear", "Party Collection", "Seasonal", "Other"];

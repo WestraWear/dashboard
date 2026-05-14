@@ -71,7 +71,7 @@ export default function TopNavbar() {
   return (
     <header
       className="flex items-center justify-between h-14 px-6 shrink-0 border-b"
-      style={{ background: "var(--card)" }}
+      style={{ background: "#f0eae0" }}
     >
       <div>
         <h1 className="text-sm font-semibold text-foreground leading-none">{meta.title}</h1>
@@ -84,7 +84,7 @@ export default function TopNavbar() {
       <div className="relative" ref={panelRef}>
         <button
           onClick={togglePanel}
-          className="relative p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="relative p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-[#e8ddd0] transition-colors"
         >
           <FaBell size={16} />
           {unseen.length > 0 && (
