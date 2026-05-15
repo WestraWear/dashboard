@@ -137,11 +137,15 @@ export default function AnalyticsPage() {
     bg: STATUS_BG[s],
   }));
 
-  // Payment breakdown
-  const paymentBreakdown = ["cod", "upi", "bank_transfer"].map((p) => ({
-    label: p === "cod" ? "Cash on Delivery" : p === "upi" ? "UPI" : "Bank Transfer",
-    value: orders.filter((o) => o.payment_method === p).length,
-    color: "var(--primary)",
+  // Payment status breakdown
+  const paymentStatusBreakdown = [
+    { label: "Paid",    key: "paid",    color: "#16A34A" },
+    { label: "Pending", key: "pending", color: "#D97706" },
+    { label: "Failed",  key: "failed",  color: "#DC2626" },
+  ].map(({ label, key, color }) => ({
+    label,
+    value: orders.filter((o) => o.payment_status === key).length,
+    color,
     bg: "var(--muted)",
   }));
 
@@ -284,7 +288,7 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="shadow-none border py-0">
             <CardHeader className="px-4 pt-4 pb-2">
-              <CardTitle className="text-sm font-medium">Payment Methods</CardTitle>
+              <CardTitle className="text-sm font-medium">Payment Status</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
               {loading ? (
@@ -296,7 +300,7 @@ export default function AnalyticsPage() {
               ) : orders.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No data yet.</p>
               ) : (
-                <BarChart data={paymentBreakdown} />
+                <BarChart data={paymentStatusBreakdown} />
               )}
             </CardContent>
           </Card>
