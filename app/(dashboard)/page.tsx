@@ -18,6 +18,13 @@ const PAYMENT_LABELS: Record<string, string> = {
   cod: "Cash on Delivery",
   upi: "UPI",
   bank_transfer: "Bank Transfer",
+  razorpay: "Razorpay (Online)",
+};
+
+const PAYMENT_STATUS_CLASSES: Record<string, string> = {
+  paid:    "bg-emerald-100 text-emerald-700 border-emerald-200",
+  pending: "bg-amber-100 text-amber-700 border-amber-200",
+  failed:  "bg-red-100 text-red-700 border-red-200",
 };
 
 const STATUS_BADGE_VARIANTS: Record<
@@ -167,6 +174,7 @@ export default function OrdersPage() {
                   <TableHead className="text-[11px] uppercase tracking-wide hidden md:table-cell">Items</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wide">Total</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wide hidden lg:table-cell">Payment</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wide hidden lg:table-cell">Pay Status</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wide">Status</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wide hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-[11px] uppercase tracking-wide w-[140px]">Update</TableHead>
@@ -190,7 +198,16 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell className="font-medium text-sm py-3">₹{order.total.toLocaleString()}</TableCell>
                       <TableCell className="text-xs text-muted-foreground hidden lg:table-cell py-3">
-                        {PAYMENT_LABELS[order.payment_method]}
+                        {PAYMENT_LABELS[order.payment_method] ?? order.payment_method}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[10px] font-medium border capitalize ${
+                            PAYMENT_STATUS_CLASSES[order.payment_status] ?? "bg-muted text-muted-foreground border-border"
+                          }`}
+                        >
+                          {order.payment_status ?? "pending"}
+                        </span>
                       </TableCell>
                       <TableCell className="py-3">
                         <OrderStatusBadge status={order.status} />
@@ -221,13 +238,19 @@ export default function OrdersPage() {
 
                     {expandedId === order.id && (
                       <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableCell colSpan={9} className="py-4 px-6">
+                      <TableCell colSpan={10} className="py-4 px-6">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                               <p className="text-xs font-semibold text-foreground mb-1.5 uppercase tracking-wide">Delivery Details</p>
                               <p className="text-sm text-muted-foreground leading-relaxed">{order.customer_address}</p>
                               {order.customer_email && (
                                 <p className="text-xs text-muted-foreground mt-1">{order.customer_email}</p>
+                              )}
+                              {order.razorpay_payment_id && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Razorpay ID:{" "}
+                                  <span className="font-mono text-foreground">{order.razorpay_payment_id}</span>
+                                </p>
                               )}
                               {order.notes && (
                                 <>

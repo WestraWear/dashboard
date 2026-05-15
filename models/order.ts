@@ -16,6 +16,9 @@ export interface Order {
   items: OrderItem[];
   total: number;
   payment_method: string;
+  payment_status: string;          // pending | paid | failed
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
   status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
   notes?: string;
   created_at: string;
