@@ -137,17 +137,19 @@ export default function OrdersPage() {
         {/* Orders table */}
         <Card className="shadow-none border py-0">
           <CardHeader className="px-4 py-3 border-b">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <CardTitle className="text-sm font-medium">All Orders</CardTitle>
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof STATUS_TABS[number])}>
-                <TabsList className="h-8 text-xs">
-                  {STATUS_TABS.map((tab) => (
-                    <TabsTrigger key={tab} value={tab} className="capitalize text-xs px-3 h-7">
-                      {tab}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-sm font-medium shrink-0">All Orders</CardTitle>
+              <div className="overflow-x-auto">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof STATUS_TABS[number])}>
+                  <TabsList className="h-8 text-xs">
+                    {STATUS_TABS.map((tab) => (
+                      <TabsTrigger key={tab} value={tab} className="capitalize text-xs px-3 h-7 shrink-0">
+                        {tab}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
           </CardHeader>
 

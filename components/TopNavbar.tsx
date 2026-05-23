@@ -70,7 +70,7 @@ export default function TopNavbar() {
 
   return (
     <header
-      className="flex items-center justify-between h-14 px-6 shrink-0 border-b"
+      className="hidden md:flex items-center justify-between h-14 px-6 shrink-0 border-b"
       style={{ background: "#f0eae0" }}
     >
       <div>
